@@ -1,0 +1,57 @@
+id: hdradio_hd_file_sink
+label: HD File Sink
+category: '[HD Radio]'
+flags: [ python ]
+
+parameters:
+-   id: directory
+    label: Directory
+    dtype: string
+    default: hd_files
+-   id: ports
+    label: Data Ports
+    dtype: raw
+    default: '[]'
+-   id: mime_types
+    label: MIME Types
+    dtype: raw
+    default: '[]'
+-   id: overwrite
+    label: Repeats
+    dtype: bool
+    default: 'False'
+    options: ['False', 'True']
+    option_labels: [Skip, Overwrite]
+
+inputs:
+-   domain: message
+    id: files
+
+outputs:
+-   domain: message
+    id: saved
+    optional: true
+
+templates:
+    imports: from gnuradio import hdradio
+    make: hdradio.hd_file_sink(${directory}, ${ports}, ${mime_types}, ${overwrite})
+
+documentation: |-
+    Saves each file from an HD Radio Receiver's "files" port to Directory:
+    album art, station logos, and other LOT files, and HERE traffic and
+    weather images.
+
+    Data Ports: the LOT data ports to keep, for example [0x1000]; [] keeps
+    all. MIME Types: nrsc5's type names to keep, for example
+    ['primary_image', 'station_logo']; [] keeps all.
+
+    Repeats: stations resend their files every few seconds. Skip writes
+    each name once; Overwrite rewrites it each time.
+
+    File names come from the station. Only the last part of the name is
+    used and odd characters become "_", so a file never lands outside
+    Directory. A name with no extension gets one from the file's content.
+
+    Each file written goes out "saved" as a dict with its path and metadata.
+
+file_format: 1

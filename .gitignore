@@ -1,0 +1,10 @@
+build/
+__pycache__/
+*.pyc
+# what the examples write
+hd_files/
+*.wav
+# captures are large; keep them out of git
+*.cu8
+*.cf32
+*.sigmf-data

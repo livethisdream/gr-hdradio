@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux:
+    # Ubuntu 24.04's gnuradio is 3.10.9, the version ECE 448 teaches.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install GNU Radio and build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends gnuradio \
+            cmake build-essential git autoconf automake libtool patch \
+            pkg-config libfftw3-dev libao-dev librtlsdr-dev xz-utils
+      - name: Build nrsc5
+        run: scripts/install_nrsc5.sh --prefix /usr
+      - name: Get nrsc5's sample capture
+        run: |
+          git clone -q https://github.com/theori-io/nrsc5.git /tmp/nrsc5
+          xz -d < /tmp/nrsc5/support/sample.xz > /tmp/sample.cu8
+      - name: Configure, install, test
+        env:
+          HDRADIO_SAMPLE: /tmp/sample.cu8
+        run: |
+          cmake -S . -B build -DCMAKE_INSTALL_PREFIX=/usr \
+            -DPYTHON_EXECUTABLE=/usr/bin/python3 \
+            -DGR_PYTHON_DIR=/usr/lib/python3/dist-packages
+          sudo cmake --install build
+          ctest --test-dir build --output-on-failure
+      - name: Compile the examples
+        run: |
+          for f in examples/*.grc; do grcc -o /tmp "$f"; done
+      - name: Run the file example on the sample
+        run: |
+          cd /tmp && python3 hd_rx_file.py -f /tmp/sample.cu8
+          test -s hd1.wav && test -s hd2.wav
+
+  windows-dll:
+    # nrsc5's own MinGW recipe: a static libnrsc5.dll and nrsc5.exe for
+    # radioconda on Windows, uploaded as an artifact.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install MinGW
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends mingw-w64 \
+            cmake git autoconf automake libtool patch pkgconf
+      - name: Cross-compile nrsc5
+        run: scripts/install_nrsc5.sh --windows nrsc5-win64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nrsc5-win64
+          path: nrsc5-win64
