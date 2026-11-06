@@ -1,0 +1,105 @@
+id: hdradio_hd_decoder
+label: HD Radio Decoder
+category: '[HD Radio]'
+flags: [ python ]
+
+parameters:
+-   id: mode
+    label: Mode
+    dtype: enum
+    default: "'fm'"
+    options: ["'fm'", "'am'"]
+    option_labels: [FM, AM]
+-   id: programs
+    label: Programs
+    dtype: raw
+    default: '[0]'
+-   id: stereo
+    label: Channels
+    dtype: bool
+    default: 'True'
+    options: ['True', 'False']
+    option_labels: [Stereo, Mono]
+-   id: paced
+    label: Audio Timing
+    dtype: bool
+    default: 'True'
+    options: ['True', 'False']
+    option_labels: [Paced (live), Burst (as decoded)]
+-   id: preroll
+    label: Preroll (s)
+    dtype: real
+    default: '0.5'
+    hide: ${ 'none' if str(paced) == 'True' else 'all' }
+
+inputs:
+-   domain: stream
+    dtype: complex
+
+outputs:
+-   label: audio
+    domain: stream
+    dtype: float
+    multiplicity: ${ len(programs) * (2 if str(stereo) == 'True' else 1) }
+    optional: true
+-   domain: message
+    id: status
+    optional: true
+-   domain: message
+    id: station
+    optional: true
+-   domain: message
+    id: services
+    optional: true
+-   domain: message
+    id: id3
+    optional: true
+-   domain: message
+    id: files
+    optional: true
+-   domain: message
+    id: data
+    optional: true
+-   domain: message
+    id: hdc
+    optional: true
+
+asserts:
+- ${ len(set(programs)) == len(programs) }
+- ${ all(0 <= p <= 7 for p in programs) }
+- ${ str(paced) != 'True' or preroll >= 0 }
+
+templates:
+    imports: from gnuradio import hdradio
+    make: hdradio.hd_decoder(${mode}, ${programs}, ${stereo}, ${paced}, ${preroll})
+
+documentation: |-
+    HD Radio (NRSC-5) decoder for complex samples at nrsc5's native rate,
+    centered on the station: 744,187.5 S/s for FM or 46,511.71875 S/s for
+    AM. HD Radio Receiver puts a resampler in front of this block for any
+    other rate.
+
+    Outputs: for each program in Programs, in order, a left and a right
+    float stream at 44,100 S/s (one stream per program in Mono). Programs
+    [] decodes metadata only. HD1 is program 0, HD2 is 1, and so on. An
+    "id3" stream tag marks the first sample of each new song.
+
+    Audio Timing: Paced gives exactly 44,100 samples per second of input,
+    silent until Preroll seconds of audio are buffered and after a dropout;
+    use it for an Audio Sink. Burst gives decoded audio only, as soon as it
+    is decoded; use it for file sinks.
+
+    Message ports: dicts whose "event" key names the event, or PDUs.
+      status    sync, lost_sync, mer, ber, agc
+      station   station name, slogan, message, location, ID, alerts, time
+      services  the service list (SIG) and each audio service
+      id3       title, artist, album, genre, per program
+      files     PDUs: LOT files (album art, station logos), HERE images;
+                connect HD File Sink to save them
+      data      PDUs: packet and stream data services
+      hdc       PDUs: raw HDC audio packets
+
+    Built on nrsc5 (github.com/theori-io/nrsc5), which must be installed;
+    see gr-hdradio's README.
+
+file_format: 1
